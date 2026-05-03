@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agora Live Test — Video Call Dashboard</title>
+<script src="https://unpkg.com/agora-rtc-sdk-ng@4.20.0/AgoraRTC_N-production.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b10;
+    --surface: #0f1420;
+    --surface2: #161d2e;
+    --border: rgba(255,255,255,0.07);
+    --border-bright: rgba(0,230,200,0.35);
+    --accent: #00e6c8;
+    --accent2: #0090ff;
+    --danger: #ff4d6a;
+    --warn: #ffb547;
+    --text: #e8eef8;
+    --muted: #6b7a99;
+    --mono: 'JetBrains Mono', monospace;
+    --head: 'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* HEADER */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 28px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #000;
+    font-family: var(--head);
+  }
+
+  .logo-text {
+    font-family: var(--head);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    color: var(--accent);
+  }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--bg);
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .status-pill.live .status-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: pulse-dot 1.5s infinite;
+  }
+
+  .status-pill.live { color: var(--accent); border-color: var(--border-bright); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .peer-count {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .peer-count strong { color: var(--text); font-size: 15px; }
+
+  /* MAIN LAYOUT */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR / SETUP */
+  .sidebar {
+    width: 320px;
+    min-width: 280px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+
+  .field-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+
+  .field-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field-input:focus {
+    border-color: var(--accent);
+    background: rgba(0,230,200,0.04);
+  }
+
+  .field-input::placeholder { color: var(--muted); }
+
+  .hint {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.6;
+    opacity: 0.75;
+  }
+
+  .hint a { color: var(--accent2); text-decoration: none; }
+  .hint a:hover { text-decoration: underline; }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* CONTROLS */
+  .ctrl-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ctrl-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.18s;
+    user-select: none;
+  }
+
+  .ctrl-btn:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); }
+  .ctrl-btn:active { transform: scale(0.97); }
+
+  .ctrl-btn.muted { border-color: var(--danger); color: var(--danger); background: rgba(255,77,106,0.08); }
+  .ctrl-btn .icon { font-size: 15px; }
+
+  .join-btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--head);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: 0.02em;
+  }
+
+  .join-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  .join-btn:active { transform: scale(0.98) translateY(0); }
+
+  .join-btn.leave {
+    background: var(--surface2);
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+
+  .join-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* LOG */
+  .log-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .log-line {
+    font-size: 10px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .log-line.ok { color: #4fd9b4; }
+  .log-line.err { color: var(--danger); }
+  .log-line.info { color: var(--accent2); }
+
+  /* VIDEO GRID */
+  .video-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow-y: auto;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    color: var(--muted);
+    text-align: center;
+    padding: 40px;
+  }
+
+  .empty-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 2px dashed var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+  }
+
+  .empty-title {
+    font-family: var(--head);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .empty-sub { font-size: 12px; max-width: 300px; line-height: 1.7; }
+
+  /* VIDEO GRID */
+  #video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    padding: 20px;
+  }
+
+  .video-tile {
+    position: relative;
+    aspect-ratio: 16/9;
+    background: var(--surface);
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .video-tile.local-tile {
+    border-color: var(--border-bright);
+    box-shadow: 0 0 0 1px rgba(0,230,200,0.15);
+  }
+
+  .video-tile video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .tile-label {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(6px);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tile-label.you { color: var(--accent); }
+
+  .tile-avatar {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--head);
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--muted);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .cam-off-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.6);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    color: var(--warn);
+    display: none;
+  }
+
+  /* SHARE SECTION */
+  .share-box {
+    background: rgba(0,144,255,0.06);
+    border: 1px solid rgba(0,144,255,0.2);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .share-label { font-size: 10px; color: var(--accent2); letter-spacing: 0.1em; }
+
+  .share-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .share-value {
+    flex: 1;
+    font-size: 11px;
+    color: var(--text);
+    background: var(--bg);
+    padding: 7px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .copy-btn {
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .copy-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* STEP GUIDE */
+  .step-guide {
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .step-num {
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .step.done .step-num { background: var(--accent); color: #000; }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .main { flex-direction: column; }
+    .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+    header { padding: 14px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">▶</div>
+    <div class="logo-text">Agora<span>Test</span></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div class="peer-count" id="peer-count" style="display:none;">
+      Peers: <strong id="peer-num">0</strong>
+    </div>
+    <div class="status-pill" id="status-pill">
+      <div class="status-dot"></div>
+      <span id="status-text">Idle</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- QUICK GUIDE -->
+    <div>
+      <div class="section-label">Quick Start</div>
+      <div class="step-guide">
+        <div class="step" id="s1">
+          <div class="step-num">1</div>
+          <div>Get free App ID from <a href="https://console.agora.io" target="_blank" style="color:var(--accent2);text-decoration:none;">console.agora.io</a></div>
+        </div>
+        <div class="step" id="s2">
+          <div class="step-num">2</div>
+          <div>Enter App ID + Channel name below</div>
+        </div>
+        <div class="step" id="s3">
+          <div class="step-num">3</div>
+          <div>Click Join — share channel name with friends</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- CONFIG -->
+    <div>
+      <div class="section-label">Connection Setup</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+
+        <div class="field-group">
+          <div class="field-label">APP ID *</div>
+          <input class="field-input" id="inp-appid" type="text" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+          <div class="hint">
+            From <a href="https://console.agora.io" target="_blank">console.agora.io</a> → Project → App ID. Free plan = 10k min/month.
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">CHANNEL NAME *</div>
+          <input class="field-input" id="inp-channel" type="text" placeholder="e.g. friend-test-room" autocomplete="off">
+          <div class="hint">All friends join the same channel name. Case sensitive.</div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">TOKEN <span style="color:var(--muted);font-size:10px;">(optional)</span></div>
+          <input class="field-input" id="inp-token" type="text" placeholder="Leave blank for testing (insecure mode)">
+          <div class="hint">
+            For quick tests, disable token auth in Agora console → Project Settings → Security → "No certificate". Or generate a temp token.
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-label">YOUR NAME / UID <span style="color:var(--muted);font-size:10px;">(optional)</span></div>
+          <input class="field-input" id="inp-uid" type="text" placeholder="Leave blank for auto-assign">
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- MEDIA CONTROLS -->
+    <div>
+      <div class="section-label">Media</div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn" id="btn-mic" onclick="toggleMic()" disabled>
+          <span class="icon">🎙️</span> Mic
+        </button>
+        <button class="ctrl-btn" id="btn-cam" onclick="toggleCam()" disabled>
+          <span class="icon">📷</span> Cam
+        </button>
+      </div>
+    </div>
+
+    <!-- JOIN / LEAVE -->
+    <button class="join-btn" id="btn-join" onclick="handleJoinLeave()">
+      Join Channel
+    </button>
+
+    <div class="divider"></div>
+
+    <!-- SHARE -->
+    <div id="share-area" style="display:none;">
+      <div class="section-label">Share With Friends</div>
+      <div class="share-box">
+        <div class="share-label">Channel Name</div>
+        <div class="share-row">
+          <div class="share-value" id="share-channel">—</div>
+          <button class="copy-btn" onclick="copyChannel()">Copy</button>
+        </div>
+        <div class="hint">Friends open this page, enter the same App ID + channel name, then click Join.</div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- LOG -->
+    <div>
+      <div class="section-label">Activity Log</div>
+      <div class="log-box" id="log-box">
+        <div class="log-line">Waiting for connection...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- VIDEO AREA -->
+  <div class="video-area" id="video-area">
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">📡</div>
+      <div class="empty-title">Ready to Test</div>
+      <div class="empty-sub">Fill in your App ID and channel name, then click Join. Invite friends to join the same channel to test live video.</div>
+    </div>
+    <div id="video-grid" style="display:none;"></div>
+  </div>
+</div>
+
+<script>
+  let client = null;
+  let localAudioTrack = null;
+  let localVideoTrack = null;
+  let isJoined = false;
+  let micMuted = false;
+  let camMuted = false;
+  let remoteUsers = {};
+
+  function log(msg, type = '') {
+    const box = document.getElementById('log-box');
+    const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const line = document.createElement('div');
+    line.className = 'log-line' + (type ? ' ' + type : '');
+    line.textContent = `[${ts}] ${msg}`;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function setStatus(text, live = false) {
+    const pill = document.getElementById('status-pill');
+    document.getElementById('status-text').textContent = text;
+    pill.className = 'status-pill' + (live ? ' live' : '');
+  }
+
+  function updatePeerCount() {
+    const n = Object.keys(remoteUsers).length;
+    document.getElementById('peer-num').textContent = n;
+    document.getElementById('peer-count').style.display = n > 0 ? 'flex' : 'none';
+  }
+
+  function addVideoTile(uid, isLocal = false) {
+    const grid = document.getElementById('video-grid');
+    const id = `tile-${uid}`;
+    if (document.getElementById(id)) return;
+
+    const tile = document.createElement('div');
+    tile.className = 'video-tile' + (isLocal ? ' local-tile' : '');
+    tile.id = id;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'tile-avatar';
+    avatar.textContent = isLocal ? 'YOU' : '👤';
+
+    const label = document.createElement('div');
+    label.className = 'tile-label' + (isLocal ? ' you' : '');
+    label.innerHTML = isLocal
+      ? `<span style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;"></span> You`
+      : `<span style="width:7px;height:7px;border-radius:50%;background:#666;border-radius:50%;display:inline-block;"></span> Peer ${uid}`;
+
+    tile.appendChild(avatar);
+    tile.appendChild(label);
+    grid.appendChild(tile);
+
+    document.getElementById('empty-state').style.display = 'none';
+    grid.style.display = 'grid';
+  }
+
+  function removeVideoTile(uid) {
+    const tile = document.getElementById(`tile-${uid}`);
+    if (tile) tile.remove();
+
+    const grid = document.getElementById('video-grid');
+    if (grid.children.length === 0) {
+      document.getElementById('empty-state').style.display = 'flex';
+      grid.style.display = 'none';
+    }
+  }
+
+  async function handleJoinLeave() {
+    if (isJoined) {
+      await leaveChannel();
+    } else {
+      await joinChannel();
+    }
+  }
+
+  async function joinChannel() {
+    const appId = document.getElementById('inp-appid').value.trim();
+    const channel = document.getElementById('inp-channel').value.trim();
+    const token = document.getElementById('inp-token').value.trim() || null;
+    const uidInput = document.getElementById('inp-uid').value.trim();
+    const uid = uidInput ? parseInt(uidInput) || uidInput : null;
+
+    if (!appId || !channel) {
+      log('App ID and Channel Name are required!', 'err');
+      return;
+    }
+
+    const btn = document.getElementById('btn-join');
+    btn.disabled = true;
+    btn.textContent = 'Connecting...';
+    setStatus('Connecting...');
+    log('Initializing Agora client...', 'info');
+
+    try {
+      client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+      AgoraRTC.setLogLevel(4);
+
+      client.on('user-published', async (user, mediaType) => {
+        await client.subscribe(user, mediaType);
+        log(`Peer ${user.uid} published ${mediaType}`, 'ok');
+
+        if (!remoteUsers[user.uid]) {
+          remoteUsers[user.uid] = user;
+          addVideoTile(user.uid);
+          updatePeerCount();
+        }
+
+        if (mediaType === 'video') {
+          user.videoTrack.play(`tile-${user.uid}`);
+          const tile = document.getElementById(`tile-${user.uid}`);
+          if (tile) {
+            const avatar = tile.querySelector('.tile-avatar');
+            if (avatar) avatar.style.display = 'none';
+          }
+        }
+
+        if (mediaType === 'audio') {
+          user.audioTrack.play();
+        }
+      });
+
+      client.on('user-unpublished', (user, mediaType) => {
+        log(`Peer ${user.uid} stopped ${mediaType}`, 'info');
+        if (mediaType === 'video') {
+          const tile = document.getElementById(`tile-${user.uid}`);
+          if (tile) {
+            const avatar = tile.querySelector('.tile-avatar');
+            if (avatar) avatar.style.display = 'flex';
+          }
+        }
+      });
+
+      client.on('user-left', (user) => {
+        log(`Peer ${user.uid} left the channel`, 'err');
+        delete remoteUsers[user.uid];
+        removeVideoTile(user.uid);
+        updatePeerCount();
+      });
+
+      client.on('user-joined', (user) => {
+        log(`Peer ${user.uid} joined the channel`, 'ok');
+        remoteUsers[user.uid] = user;
+        addVideoTile(user.uid);
+        updatePeerCount();
+      });
+
+      client.on('connection-state-change', (cur, prev) => {
+        log(`Connection: ${prev} → ${cur}`, 'info');
+      });
+
+      const myUid = await client.join(appId, channel, token, uid);
+      log(`Joined as UID: ${myUid}`, 'ok');
+
+      log('Accessing camera and microphone...', 'info');
+      [localAudioTrack, localVideoTrack] = await AgoraRTC.createMicrophoneAndCameraTracks();
+      log('Local tracks created', 'ok');
+
+      addVideoTile('local', true);
+      localVideoTrack.play('tile-local');
+      const localTile = document.getElementById('tile-local');
+      if (localTile) {
+        const avatar = localTile.querySelector('.tile-avatar');
+        if (avatar) avatar.style.display = 'none';
+      }
+
+      await client.publish([localAudioTrack, localVideoTrack]);
+      log('Published audio + video', 'ok');
+
+      isJoined = true;
+      btn.textContent = '✕  Leave Channel';
+      btn.className = 'join-btn leave';
+      btn.disabled = false;
+      setStatus('Live', true);
+
+      document.getElementById('btn-mic').disabled = false;
+      document.getElementById('btn-cam').disabled = false;
+
+      document.getElementById('share-channel').textContent = channel;
+      document.getElementById('share-area').style.display = 'block';
+
+      document.getElementById('s1').classList.add('done');
+      document.getElementById('s1').querySelector('.step-num').textContent = '✓';
+      document.getElementById('s2').classList.add('done');
+      document.getElementById('s2').querySelector('.step-num').textContent = '✓';
+      document.getElementById('s3').classList.add('done');
+      document.getElementById('s3').querySelector('.step-num').textContent = '✓';
+
+    } catch (err) {
+      log(`Error: ${err.message || err}`, 'err');
+      setStatus('Error');
+      btn.disabled = false;
+      btn.textContent = 'Join Channel';
+      btn.className = 'join-btn';
+    }
+  }
+
+  async function leaveChannel() {
+    const btn = document.getElementById('btn-join');
+    btn.disabled = true;
+    btn.textContent = 'Leaving...';
+
+    try {
+      if (localAudioTrack) { localAudioTrack.close(); localAudioTrack = null; }
+      if (localVideoTrack) { localVideoTrack.close(); localVideoTrack = null; }
+      if (client) { await client.leave(); client = null; }
+
+      remoteUsers = {};
+      isJoined = false;
+      micMuted = false;
+      camMuted = false;
+
+      document.getElementById('video-grid').innerHTML = '';
+      document.getElementById('video-grid').style.display = 'none';
+      document.getElementById('empty-state').style.display = 'flex';
+      document.getElementById('share-area').style.display = 'none';
+
+      document.getElementById('btn-mic').disabled = true;
+      document.getElementById('btn-mic').className = 'ctrl-btn';
+      document.getElementById('btn-mic').innerHTML = '<span class="icon">🎙️</span> Mic';
+
+      document.getElementById('btn-cam').disabled = true;
+      document.getElementById('btn-cam').className = 'ctrl-btn';
+      document.getElementById('btn-cam').innerHTML = '<span class="icon">📷</span> Cam';
+
+      btn.textContent = 'Join Channel';
+      btn.className = 'join-btn';
+      btn.disabled = false;
+      setStatus('Idle');
+      updatePeerCount();
+      document.getElementById('peer-count').style.display = 'none';
+
+      log('Left the channel', 'info');
+    } catch (err) {
+      log(`Leave error: ${err.message}`, 'err');
+      btn.disabled = false;
+    }
+  }
+
+  async function toggleMic() {
+    if (!localAudioTrack) return;
+    micMuted = !micMuted;
+    await localAudioTrack.setMuted(micMuted);
+    const btn = document.getElementById('btn-mic');
+    btn.className = 'ctrl-btn' + (micMuted ? ' muted' : '');
+    btn.innerHTML = micMuted
+      ? '<span class="icon">🔇</span> Muted'
+      : '<span class="icon">🎙️</span> Mic';
+    log(micMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+  }
+
+  async function toggleCam() {
+    if (!localVideoTrack) return;
+    camMuted = !camMuted;
+    await localVideoTrack.setMuted(camMuted);
+    const btn = document.getElementById('btn-cam');
+    btn.className = 'ctrl-btn' + (camMuted ? ' muted' : '');
+    btn.innerHTML = camMuted
+      ? '<span class="icon">📵</span> Off'
+      : '<span class="icon">📷</span> Cam';
+
+    const localTile = document.getElementById('tile-local');
+    if (localTile) {
+      const avatar = localTile.querySelector('.tile-avatar');
+      if (avatar) {
+        avatar.style.display = camMuted ? 'flex' : 'none';
+        avatar.textContent = 'YOU';
+      }
+    }
+    log(camMuted ? 'Camera disabled' : 'Camera enabled', 'info');
+  }
+
+  function copyChannel() {
+    const val = document.getElementById('share-channel').textContent;
+    navigator.clipboard.writeText(val).then(() => {
+      const btn = document.querySelector('.copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy', 1500);
+    });
+  }
+</script>
+</body>
+</html>
